@@ -2,7 +2,7 @@ from dotenv import load_dotenv
 import uuid
 import faiss
 from langchain.chat_models import init_chat_model
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_community.vectorstores import FAISS
@@ -11,14 +11,22 @@ from langchain_core.tools.retriever import create_retriever_tool
 from langchain_openai import OpenAIEmbeddings
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import create_react_agent
+from langchain_groq import ChatGroq          # add this
+from langchain_ollama import OllamaEmbeddings  # keep this
+# remove: from langchain_ollama import ChatOllama
+from langchain_google_genai import ChatGoogleGenerativeAI
 
 load_dotenv(override=True)
 
-llm = init_chat_model(model="gpt-4.1-mini", model_provider="openai")
+from langchain_ollama import ChatOllama
 
+llm = ChatOllama(model="qwen2.5:7b")
 def create_vector_store():
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+    embeddings = OllamaEmbeddings(model="nomic-embed-text")
+
+    # Get embedding size dynamically
     embedding_dim = len(embeddings.embed_query("hello world"))
+
     index = faiss.IndexFlatL2(embedding_dim)
 
     vector_store = FAISS(
@@ -26,7 +34,8 @@ def create_vector_store():
         index=index,
         docstore=InMemoryDocstore(),
         index_to_docstore_id={},
-    )    
+    )
+
     return vector_store
 
 def create_faq_agent(llm: BaseChatModel):
@@ -34,13 +43,13 @@ def create_faq_agent(llm: BaseChatModel):
     loader = DirectoryLoader("knowledge_base", glob="**/*.md", loader_cls=TextLoader)
     docs = loader.load()
     text_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-        chunk_size=1000, chunk_overlap=200
+        chunk_size=400, chunk_overlap=50
     )
     doc_splits = text_splitter.split_documents(docs)
     vector_store.add_documents(doc_splits)
     
     retriever_tool = create_retriever_tool(
-        vector_store.as_retriever(),
+        vector_store.as_retriever(search_kwargs={"k": 2}),
         name="faq_assistant",
         description="Useful for answering questions about insurance claims, coverage, deductibles, premiums, and the claims process.",
     )
