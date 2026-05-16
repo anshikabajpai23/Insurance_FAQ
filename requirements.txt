@@ -1,0 +1,14 @@
+
+faiss-cpu>=1.11.0
+langchain>=0.3.26
+langchain-community>=0.3.26
+langchain-openai>=0.3.24
+langgraph>=0.4.8
+python-dotenv>=1.1.0
+
+# dev dependencies
+langsmith[pytest]>=0.4.1
+openevals>=0.1.0
+pytest>=8.4.1
+langchain_core 
+langchain-anthropic 
