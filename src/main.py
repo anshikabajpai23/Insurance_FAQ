@@ -8,13 +8,9 @@ from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from langchain_community.vectorstores import FAISS
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_core.tools.retriever import create_retriever_tool
-from langchain_openai import OpenAIEmbeddings
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import create_react_agent
-from langchain_groq import ChatGroq          # add this
-from langchain_ollama import OllamaEmbeddings  # keep this
-# remove: from langchain_ollama import ChatOllama
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_ollama import OllamaEmbeddings  
 
 load_dotenv(override=True)
 

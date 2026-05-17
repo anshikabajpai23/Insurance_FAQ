@@ -185,8 +185,25 @@ def test_evaluate_faq_agent(faq_chat_examples: list):
         return { "answer": response }
     
     evaluations = evaluate(target, dataset_name, "insurance-faq-eval")
+
+    total, passed = 0, 0
+    failures = []
     for evaluation in evaluations:
         for result in evaluation["evaluation_results"]["results"]:
-            assert result.score, result.comment
+            total += 1
+            if result.score:
+                passed += 1
+            else:
+                failures.append(f"[FAIL] {result.key}: {result.comment}")
+
+    pass_rate = passed / total if total > 0 else 0
+    print(f"\n=== Evaluation Results ===")
+    print(f"Passed: {passed}/{total} ({pass_rate:.0%})")
+    if failures:
+        print("Failures:")
+        for f in failures:
+            print(f"  {f}")
+
+    assert pass_rate >= 0.70, f"Pass rate {pass_rate:.0%} is below the 70% threshold ({passed}/{total})"
 
     

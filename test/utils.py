@@ -17,7 +17,7 @@ def rag_relevance_evaluator(inputs: dict, outputs: dict, reference_outputs: dict
     docs = loader.load()
     evaluator = create_llm_as_judge(
         prompt=RAG_RETRIEVAL_RELEVANCE_PROMPT,
-        model="ollama/qwen2.5:7b",
+        model="ollama:qwen2.5:7b",
         feedback_key="retrieval_relevance",
     )
     eval_result = evaluator(
@@ -29,7 +29,7 @@ def rag_relevance_evaluator(inputs: dict, outputs: dict, reference_outputs: dict
 def correctness_evaluator(inputs: dict, outputs: dict, reference_outputs: dict):
     evaluator = create_llm_as_judge(
         prompt=CORRECTNESS_PROMPT,
-        model="ollama/qwen2.5:7b",
+        model="ollama:qwen2.5:7b",
         feedback_key="correctness",
     )
     eval_result = evaluator(
