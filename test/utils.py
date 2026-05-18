@@ -42,7 +42,13 @@ def _parse_ratio(content: str, numerator_key: str, denominator_key: str) -> dict
             data = json.loads(match.group())
             num = int(data.get(numerator_key, 0))
             den = int(data.get(denominator_key, 1))
-            score = round(num / den, 2) if den > 0 else 0.0
+            # score = round(num / den, 2) if den > 0 else 0.0
+            # score = min(round(num / den, 2), 1.0) if den > 0 else 0.0
+            den = int(data.get(denominator_key, 1))
+            if den == 0:
+                return {"score": 1.0, "comment": "no claims made — perfectly faithful"}
+            score = min(round(num / den, 2), 1.0) if den > 0 else 0.0
+
             return {"score": score, "comment": str(data.get("comment", f"{num}/{den}"))}
         except (json.JSONDecodeError, ValueError, ZeroDivisionError):
             pass

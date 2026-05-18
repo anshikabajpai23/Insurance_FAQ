@@ -172,6 +172,136 @@ def faq_chat_examples():
             "outputs": {"answer": "A personal umbrella policy is a type of liability insurance that provides additional coverage beyond the limits of your homeowners, auto, or other personal insurance policies."},
         },
     ]
+
+@pytest.fixture
+def adversarial_examples():
+    return [
+        # --- OUT-OF-SCOPE (agent must say "I don't know") ---
+        {
+            "inputs": {"question": "What is the capital of France?"},
+            "outputs": {"answer": "I don't know"},
+        },
+        {
+            "inputs": {"question": "Can you recommend the best insurance company?"},
+            "outputs": {"answer": "I don't know"},
+        },
+        {
+            "inputs": {"question": "Does my insurance cover damage from war or nuclear events?"},
+            "outputs": {"answer": "I don't know"},
+        },
+        {
+            "inputs": {"question": "Can I insure my cryptocurrency holdings?"},
+            "outputs": {"answer": "I don't know"},
+        },
+        {
+            "inputs": {"question": "What is the stock price of Progressive Insurance?"},
+            "outputs": {"answer": "I don't know"},
+        },
+
+        # --- MULTI-HOP (requires combining 2+ FAQ entries) ---
+        {
+            "inputs": {"question": "If a hailstorm damages my car and I have comprehensive coverage, will I pay a deductible?"},
+            "outputs": {"answer": "Yes. Comprehensive coverage pays for hail damage, but you will still owe your deductible before the insurer pays the rest."},
+        },
+        {
+            "inputs": {"question": "If I'm hit by an uninsured driver and my car is totaled, what happens?"},
+            "outputs": {"answer": "Uninsured motorist coverage can help pay your medical expenses and losses. If the car is a total loss, your insurer pays the actual cash value minus your deductible."},
+        },
+        {
+            "inputs": {"question": "I have PIP coverage — do I still need to file a claim if the accident wasn't my fault?"},
+            "outputs": {"answer": "Yes. You are required to report a claim even if it is not your fault. PIP covers your medical expenses regardless of fault."},
+        },
+        {
+            "inputs": {"question": "If my vehicle is totaled and I still have a loan, will insurance cover the full loan amount?"},
+            "outputs": {"answer": "Not necessarily. Insurance pays the actual cash value of the vehicle. If that is less than your loan balance, Loan/Lease Payoff (gap) coverage can help cover the difference up to policy limits."},
+        },
+        {
+            "inputs": {"question": "Does homeowners insurance cover my car if it's stolen from my driveway?"},
+            "outputs": {"answer": "No. Homeowners insurance does not cover vehicle theft. You would need comprehensive coverage on your auto policy for that."},
+        },
+
+        # --- PARAPHRASED (different wording, same meaning as FAQ) ---
+        {
+            "inputs": {"question": "If someone crashes into me and they have no insurance, what happens to my medical bills?"},
+            "outputs": {"answer": "Uninsured motorist coverage helps pay for your medical expenses, pain and suffering, and lost wages when you are hit by a driver who has no insurance."},
+        },
+        {
+            "inputs": {"question": "How does my insurer figure out who's to blame after a crash?"},
+            "outputs": {"answer": "Liability is determined based on state laws and the circumstances of the accident. There may be shared responsibility between the parties involved."},
+        },
+        {
+            "inputs": {"question": "What happens if fixing my car costs more than the car is worth?"},
+            "outputs": {"answer": "Your vehicle is considered a total loss when the repair cost exceeds its pre-loss value. Your insurer will pay the actual cash value minus your deductible."},
+        },
+        {
+            "inputs": {"question": "Will my rate go up if I make a claim?"},
+            "outputs": {"answer": "Your current rate will not change. However, your premium may increase at renewal depending on the claim. Claims under $500 or unpaid claims typically do not raise rates."},
+        },
+        {
+            "inputs": {"question": "Does my home policy pay if a guest slips and falls at my house?"},
+            "outputs": {"answer": "Yes. Standard homeowners insurance includes liability coverage if someone is injured on your property."},
+        },
+
+        # --- COMPARATIVE / SUB-PART (requires multi-step reasoning) ---
+        {
+            "inputs": {"question": "What's the difference between comprehensive and collision coverage, and which one covers a flood?"},
+            "outputs": {"answer": "Collision covers damage from hitting another vehicle or object. Comprehensive covers non-collision events like theft, fire, vandalism, and weather — including flooding. Flood damage is covered by comprehensive, not collision."},
+        },
+        {
+            "inputs": {"question": "What's the difference between PIP and Medical Payments coverage?"},
+            "outputs": {"answer": "Both cover medical expenses after an accident regardless of fault. PIP is broader — it also covers lost wages and other costs, and typically applies before your health insurance. Medical Payments covers medical and funeral expenses only."},
+        },
+        {
+            "inputs": {"question": "If I only have liability coverage and I crash into a tree, am I covered?"},
+            "outputs": {"answer": "No. Liability coverage only pays for damages you cause to others. Damage to your own vehicle from hitting a tree requires collision coverage."},
+        },
+        {
+            "inputs": {"question": "What does 100/300/100 mean and is that enough coverage?"},
+            "outputs": {"answer": "100/300/100 means $100,000 bodily injury per person, $300,000 total bodily injury per accident, and $100,000 property damage per accident. Whether it is enough depends on your assets and risk — higher limits provide more protection if damages exceed the limits."},
+        },
+        {
+            "inputs": {"question": "Should I use my insurer's repair shop or can I pick my own?"},
+            "outputs": {"answer": "You have options: use a network repair shop recommended by your insurer, choose any shop of your preference, or use a photo estimate tool through your insurer's mobile app to document damage remotely."},
+        },
+    ]
+
+
+def test_evaluate_adversarial(adversarial_examples: list):
+    dataset_name = "Insurance FAQ Complex dataset"
+    create_dataset_if_not_exists(dataset_name, adversarial_examples)
+
+    faq_agent = create_faq_agent(llm)
+    chatbot = Chatbot(faq_agent)
+
+    def target(inputs: dict) -> dict:
+        response = chatbot.chat(inputs["question"])
+        return {"answer": response}
+
+    evaluations = evaluate(target, dataset_name, "insurance-faq-adversarial-v1")
+
+    total, score_sum = 0, 0.0
+    low_scores = []
+
+    for evaluation in evaluations:
+        for result in evaluation["evaluation_results"]["results"]:
+            total += 1
+            score = float(result.score or 0)
+            score_sum += score
+            if score < 0.5:
+                low_scores.append(f"[LOW] {result.key} (score={score:.2f}): {result.comment}")
+
+    avg_score = score_sum / total if total > 0 else 0.0
+
+    print(f"\n=== Adversarial Evaluation Results ===")
+    print(f"Total evaluations: {total} (20 questions × 3 metrics)")
+    print(f"Avg score: {avg_score:.2f}")
+    if low_scores:
+        print("Low scores (<0.5):")
+        for s in low_scores:
+            print(f"  {s}")
+
+    # Lower threshold — adversarial questions are intentionally hard
+    assert avg_score >= 0.55, f"Avg score {avg_score:.2f} is below 0.55 adversarial threshold"
     
 def test_evaluate_faq_agent(faq_chat_examples: list):
     dataset_name = "Insurance FAQ agent dataset"
