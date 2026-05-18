@@ -11,6 +11,9 @@ from langchain_core.tools.retriever import create_retriever_tool
 from langgraph.graph import StateGraph
 from langgraph.prebuilt import create_react_agent
 from langchain_ollama import OllamaEmbeddings  
+from langchain_community.retrievers import BM25Retriever
+# from langchain.retrievers import EnsembleRetriever
+from langchain_classic.retrievers import EnsembleRetriever
 
 load_dotenv(override=True)
 
@@ -43,13 +46,26 @@ def create_faq_agent(llm: BaseChatModel):
     )
     doc_splits = text_splitter.split_documents(docs)
     vector_store.add_documents(doc_splits)
-    
+
+    # BM25 — keyword search
+    bm25_retriever = BM25Retriever.from_documents(doc_splits)
+    bm25_retriever.k = 2
+
+    # Semantic — vector search
+    semantic_retriever = vector_store.as_retriever(search_kwargs={"k": 2})
+
+    # Hybrid — combine both
+    hybrid_retriever = EnsembleRetriever(
+        retrievers=[bm25_retriever, semantic_retriever],
+        weights=[0.4, 0.6]
+    )
+
     retriever_tool = create_retriever_tool(
-        vector_store.as_retriever(search_kwargs={"k": 2}),
-        name="faq_assistant",
+        hybrid_retriever,
+        name="insurance_faq_assistant",
         description="Useful for answering questions about insurance claims, coverage, deductibles, premiums, and the claims process.",
     )
-    
+        
     prompt = """
     You're a helpful and concise assistant that helps users with insurance claims and coverage questions.
 
