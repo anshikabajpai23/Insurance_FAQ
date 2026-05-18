@@ -179,31 +179,33 @@ def test_evaluate_faq_agent(faq_chat_examples: list):
 
     faq_agent = create_faq_agent(llm)
     chatbot = Chatbot(faq_agent)
-    
+
     def target(inputs: dict) -> dict:
         response = chatbot.chat(inputs["question"])
-        return { "answer": response }
-    
-    evaluations = evaluate(target, dataset_name, "insurance-faq-eval")
+        return {"answer": response}
 
-    total, passed = 0, 0
-    failures = []
+    evaluations = evaluate(target, dataset_name, "insurance-faq-eval-v2")
+
+    # Ratio scoring: sum all scores, divide by total evaluations
+    total, score_sum = 0, 0.0
+    low_scores = []
+
     for evaluation in evaluations:
         for result in evaluation["evaluation_results"]["results"]:
             total += 1
-            if result.score:
-                passed += 1
-            else:
-                failures.append(f"[FAIL] {result.key}: {result.comment}")
+            score = float(result.score or 0)
+            score_sum += score
+            if score < 0.5:
+                low_scores.append(f"[LOW] {result.key} (score={score:.2f}): {result.comment}")
 
-    pass_rate = passed / total if total > 0 else 0
+    avg_score = score_sum / total if total > 0 else 0.0
+
     print(f"\n=== Evaluation Results ===")
-    print(f"Passed: {passed}/{total} ({pass_rate:.0%})")
-    if failures:
-        print("Failures:")
-        for f in failures:
-            print(f"  {f}")
+    print(f"Total evaluations: {total} (40 questions × 3 metrics)")
+    print(f"Avg score: {avg_score:.2f} ({score_sum:.1f} / {total})")
+    if low_scores:
+        print("Low scores (<0.5):")
+        for s in low_scores:
+            print(f"  {s}")
 
-    assert pass_rate >= 0.70, f"Pass rate {pass_rate:.0%} is below the 70% threshold ({passed}/{total})"
-
-    
+    assert avg_score >= 0.70, f"Avg score {avg_score:.2f} is below 0.70 threshold"
